@@ -11,7 +11,9 @@
     "lint": "npm run build && eslint index.js lib/**/*.js",
     "test": "npm run lint && mocha test/unit/**/*_test.js",
     "cover": "istanbul cover _mocha test/unit/**/*_test.js",
-    "coveralls": "npm run cover -- --report lcovonly && cat ./coverage/lcov.info | coveralls"
+    "coveralls": "npm run cover -- --report lcovonly && cat ./coverage/lcov.info | coveralls",
+    "preversion": "npm run lint && npm test",
+    "postversion": "git push && git push --tags && npm publish"
   },
   "repository": {
     "type": "git",
