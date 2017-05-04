@@ -1,6 +1,6 @@
 {
   "name": "icmp-ping",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Use ICMP packets to efficiently track a host's response time and packet loss",
   "main": "index.js",
   "scripts": {
