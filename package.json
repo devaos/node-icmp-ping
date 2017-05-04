@@ -1,0 +1,43 @@
+{
+  "name": "icmp-ping",
+  "version": "0.1.0",
+  "description": "Use ICMP packets to efficiently track a host's response time and packet loss",
+  "main": "index.js",
+  "scripts": {
+    "build-cli": "gcc -I./src src/ping.c src/run.c -luv -o build/ping",
+    "cli": "npm run build-cli && sudo ./build/ping",
+    "build": "node-gyp configure && node-gyp build",
+    "lint": "npm run build && eslint index.js lib/**/*.js",
+    "test": "npm run lint && mocha test/unit/**/*_test.js",
+    "cover": "istanbul cover _mocha test/unit/**/*_test.js",
+    "coveralls": "npm run cover -- --report lcovonly && cat ./coverage/lcov.info | coveralls"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devaos/node-icmp-ping.git"
+  },
+  "keywords": [
+    "ping",
+    "icmp",
+    "rtt"
+  ],
+  "author": "Ari Aosved <ari.aosved@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/devaos/node-icmp-ping/issues"
+  },
+  "gypfile": true,
+  "dependencies": {
+    "bindings": "1.x"
+  },
+  "devDependencies": {
+    "coveralls": "2.x",
+    "eslint": "3.x",
+    "eslint-config-airbnb": "14.x",
+    "eslint-plugin-import": "2.x",
+    "eslint-plugin-jsx-a11y": "4.x",
+    "eslint-plugin-react": "6.x",
+    "mocha": "3.x",
+    "mocha-lcov-reporter": "1.x"
+  }
+}
