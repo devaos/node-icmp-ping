@@ -157,13 +157,6 @@ void begin_probing(ping_state_t *context) {
   int rc, on = 1;
   struct addrinfo *p;
 
-  if (getuid() != 0) {
-    context->err = -1;
-    strcpy(context->errmsg, "implementation failure [Raw sockets for ICMP require root]");
-    cleanup(context);
-    return;
-  }
-
   for (p = context->to; p; p = p->ai_next) {
     context->socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if (context->socket == -1)
