@@ -2,17 +2,17 @@
   "name": "icmp-ping",
   "version": "0.1.1",
   "description": "Use ICMP packets to efficiently track a host's response time and packet loss",
-  "main": "index.js",
+  "main": "lib/icmp-ping.js",
   "scripts": {
     "build-c": "mkdir -p build && gcc -I./src src/ping.c test/e2e/ping.c -luv -o build/ping",
     "run-c": "npm run build-c && sudo ./build/ping",
     "build": "node-gyp configure && node-gyp build",
     "run": "npm run build && sudo node test/e2e/ping_test.js",
-    "lint": "npm run build && eslint index.js lib/**/*.js",
+    "lint": "eslint lib/**/*.js test/**/*.js",
     "test": "npm run lint && mocha test/unit/**/*_test.js",
     "cover": "istanbul cover _mocha test/unit/**/*_test.js",
     "coveralls": "npm run cover -- --report lcovonly && cat ./coverage/lcov.info | coveralls",
-    "preversion": "npm run lint && npm test",
+    "preversion": "npm test",
     "postversion": "git push && git push --tags && npm publish"
   },
   "repository": {
