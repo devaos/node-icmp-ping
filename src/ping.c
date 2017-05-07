@@ -16,23 +16,18 @@
 
 /* ========================================================================== */
 
-extern int errno;
-static int instances = 0;
-ping_options_t ping_default_options = {NULL, 5, 6000, 1000, NULL, NULL, NULL, NULL};
+#define THROTTLE 20
 
 /* ========================================================================== */
-/*
-static void WorkAsync(uv_work_t *req) {
-  printf("WTF9?\n");
-  //ping_state_t* context = (ping_state_t*)req->data;
-  //uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-  printf("WTF10?\n");
-}
 
-static void WorkAsyncComplete(uv_work_t *req, int status) {
-  printf("WTF11?\n");
-}
-*/
+extern int errno;
+static int instances = 0;
+static int queued = 0;
+
+ping_options_t ping_default_options = {NULL, 1, 1000, 1000, NULL, NULL, NULL, NULL};
+
+/* ========================================================================== */
+
 ping_state_t* ping(const char *target, ping_options_t *options) {
   int rc;
   ping_state_t *context = calloc(1, sizeof(ping_state_t));
@@ -103,7 +98,12 @@ void cleanup(ping_state_t *context) {
     context->socket = 0;
     uv_poll_stop(&context->poll_handle);
     uv_timer_stop(&context->interval_handle);
+    uv_timer_stop(&context->throttle_interval_handle);
     uv_timer_stop(&context->timeout_handle);
+  }
+
+  if (context->queued > queued) {
+    queued -= context->queued;
   }
 
   gettimeofday(&context->ended, NULL);
@@ -173,12 +173,16 @@ void begin_probing(ping_state_t *context) {
   }
 
   uv_timer_init(context->loop_handle, &context->interval_handle);
+  uv_timer_init(context->loop_handle, &context->throttle_interval_handle);
   uv_timer_init(context->loop_handle, &context->timeout_handle);
   uv_poll_init_socket(context->loop_handle, &context->poll_handle, context->socket);
   context->poll_handle.data = context;
   uv_poll_start(&context->poll_handle, UV_READABLE | UV_DISCONNECT, on_socket_poll);
   context->timeout_handle.data = context;
-  uv_timer_start(&context->timeout_handle, on_timeout, context->options->timeout, 0);
+
+  if (context->options->timeout > 0) {
+    uv_timer_start(&context->timeout_handle, on_timeout, context->options->timeout, 0);
+  }
 
   rc = setsockopt(context->socket, SOL_SOCKET,  SO_REUSEADDR, (char *)&on, sizeof(on));
   if (rc < 0) {
@@ -202,7 +206,10 @@ void begin_probing(ping_state_t *context) {
 
   context->interval_handle.data = context;
   on_interval(&context->interval_handle);
-  uv_timer_start(&context->interval_handle, on_interval, context->options->interval, context->options->interval);
+
+  if (context->options->probes == 0 || context->transmitted < context->options->probes) {
+    uv_timer_start(&context->interval_handle, on_interval, context->options->interval, context->options->interval);
+  }
 }
 
 /* ========================================================================== */
@@ -214,11 +221,30 @@ void on_timeout(uv_timer_t *timeout) {
 /* ========================================================================== */
 
 void on_interval(uv_timer_t *timeout) {
+  ping_state_t *context = (ping_state_t *) timeout->data;
+
+  if (context->options->probes > 0 && context->transmitted + 1 >= context->options->probes) {
+    uv_timer_stop(&context->interval_handle);
+  }
+
+  context->queued++;
+  context->throttle_interval_handle.data = context;
+  uv_timer_start(&context->throttle_interval_handle, on_throttle_interval, THROTTLE * queued++, 0);
+}
+
+/* ========================================================================== */
+
+void on_throttle_interval(uv_timer_t *timeout) {
   int i;
   ping_state_t *context = (ping_state_t *) timeout->data;
   struct icmp *icp = (struct icmp *) context->opacket;
   ping_header_t *header = (ping_header_t *) &context->opacket[8];
   u_char *data = &context->opacket[8+sizeof(ping_header_t)];
+
+  context->queued--;
+  if (--queued < 0) {
+    queued = 0;
+  }
 
   icp->icmp_type = ICMP_ECHO;
   icp->icmp_code = 0;
@@ -236,6 +262,7 @@ void on_interval(uv_timer_t *timeout) {
 
   context->optr = context->opacket;
   context->oleft = context->osize;
+
   uv_poll_stop(&context->poll_handle);
   uv_poll_start(&context->poll_handle, UV_WRITABLE | UV_READABLE | UV_DISCONNECT, on_socket_poll);
 }
@@ -387,7 +414,7 @@ void unpack(ping_state_t *context, struct sockaddr_in *from) {
   context->received++;
 
   if (context->options->cb_receipt) {
-    context->options->cb_receipt(context, triptime, header->sent, received);
+    context->options->cb_receipt(context, triptime, header->sent, received, icp->icmp_seq);
   }
 }
 

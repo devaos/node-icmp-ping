@@ -4,8 +4,8 @@
   "description": "Use ICMP packets to efficiently track a host's response time and packet loss",
   "main": "lib/icmp-ping.js",
   "scripts": {
-    "build-c": "mkdir -p build && gcc -I./src src/ping.c test/e2e/ping.c -luv -o build/ping",
-    "run-c": "npm run build-c && sudo ./build/ping",
+    "build-c": "mkdir -p build && gcc -I./src src/ping.c test/e2e/ping.c -luv -o build/ping && sudo setcap cap_net_raw+ep build/ping",
+    "run-c": "npm run build-c && ./build/ping",
     "build": "node-gyp configure && node-gyp build",
     "run": "npm run build && sudo node test/e2e/ping_test.js",
     "lint": "eslint lib/**/*.js test/**/*.js",

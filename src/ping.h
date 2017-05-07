@@ -26,7 +26,7 @@ typedef struct ping_state_s ping_state_t;
 typedef struct ping_header_s ping_header_t;
 
 typedef void (*cb_startup_t)(ping_state_t *);
-typedef void (*cb_receipt_t)(ping_state_t *, float, struct timeval, struct timeval);
+typedef void (*cb_receipt_t)(ping_state_t *, float, struct timeval, struct timeval, u_short);
 typedef void (*cb_complete_t)(ping_state_t *, int);
 
 struct ping_options_s {
@@ -90,10 +90,12 @@ struct ping_state_s {
   float tmin;
   float tmax;
   float tsum;
+  int queued;
 
   /* internally used libuv constructs */
   uv_loop_t *loop_handle;
   uv_timer_t interval_handle;
+  uv_timer_t throttle_interval_handle;
   uv_timer_t timeout_handle;
   uv_poll_t poll_handle;
 };
@@ -114,6 +116,7 @@ void on_target_resolved(uv_getaddrinfo_t *, int, struct addrinfo *);
 void begin_probing(ping_state_t *);
 void on_timeout(uv_timer_t *);
 void on_interval(uv_timer_t *);
+void on_throttle_interval(uv_timer_t *);
 u_short cksum(struct icmp *, int);
 void on_socket_poll(uv_poll_t *req, int, int);
 void unpack(ping_state_t *, struct sockaddr_in *);

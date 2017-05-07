@@ -23,9 +23,9 @@ void on_startup(ping_state_t *context) {
 
 /* ========================================================================== */
 
-void on_receipt(ping_state_t *context, float triptime, struct timeval sent, struct timeval received) {
+void on_receipt(ping_state_t *context, float triptime, struct timeval sent, struct timeval received, u_short seq) {
   printf("%d bytes from %s (%s): icmp_seq=%d time=%.1f ms\n",
-    context->isize, context->target, context->toip, context->received, triptime);
+    context->isize, context->target, context->toip, seq, triptime);
 }
 
 /* ========================================================================== */
@@ -66,8 +66,8 @@ int main(int argc, char *argv[])
 {
   ping_state_t *context;
   ping_options_t options = {
-    .probes = ping_default_options.probes,
-    .timeout = ping_default_options.timeout,
+    .probes = 5,
+    .timeout = 6000,
     .interval = ping_default_options.interval,
     .cb_startup = on_startup,
     .cb_receipt = on_receipt,

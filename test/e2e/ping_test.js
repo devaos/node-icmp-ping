@@ -2,13 +2,13 @@
 
 'use strict';
 
-require('../../lib/icmp-ping').probe('google-public-dns-a.google.com')
+require('../../lib/icmp-ping').probe({ target: 'google-public-dns-a.google.com', probes: 5, timeout: 6000 })
   .once('startup', (stats) => {
     const msg = `PING ${stats.target} (${stats.ip}) ${stats.payloadBytes}(${stats.totalBytes}) bytes of data.\n`;
     process.stdout.write(msg);
   })
   .on('receipt', (stats) => {
-    const msg = `${stats.receivedBytes} bytes from ${stats.target} (${stats.ip}): icmp_seq=${stats.received} time=${stats.triptime.toFixed(1)} ms\n`;
+    const msg = `${stats.receivedBytes} bytes from ${stats.target} (${stats.ip}): icmp_seq=${stats.sequence} time=${stats.triptime.toFixed(1)} ms\n`;
     process.stdout.write(msg);
   })
   .once('complete', (err, stats) => {

@@ -50,7 +50,7 @@ void on_startup(ping_state_t *context) {
 
 /* ========================================================================== */
 
-void on_receipt(ping_state_t *context, float triptime, struct timeval sent, struct timeval received) {
+void on_receipt(ping_state_t *context, float triptime, struct timeval sent, struct timeval received, u_short seq) {
   persist_t* persist = (persist_t*)context->options->data;
 
   if (persist->on_receipt.IsEmpty()) {
@@ -68,6 +68,7 @@ void on_receipt(ping_state_t *context, float triptime, struct timeval sent, stru
 
   obj->Set(String::NewFromUtf8(persist->isolate, "receivedBytes"), Number::New(persist->isolate, context->isize));
   obj->Set(String::NewFromUtf8(persist->isolate, "received"), Number::New(persist->isolate, context->received));
+  obj->Set(String::NewFromUtf8(persist->isolate, "sequence"), Number::New(persist->isolate, seq));
   obj->Set(String::NewFromUtf8(persist->isolate, "triptime"), Number::New(persist->isolate, triptime));
 
   Local<Value> argv[1] = { obj };
