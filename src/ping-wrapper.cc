@@ -18,24 +18,33 @@ using namespace v8;
 
 /* ========================================================================== */
 
-typedef struct persist_s {
+struct PersistPingContext {
   Isolate* isolate;
   Persistent<Function> on_startup;
   Persistent<Function> on_receipt;
   Persistent<Function> on_complete;
-} persist_t;
+};
+
+/* ========================================================================== */
+
+void cleanup(PersistPingContext* persist) {
+  persist->on_startup.Reset();
+  persist->on_receipt.Reset();
+  persist->on_complete.Reset();
+  delete persist;
+}
 
 /* ========================================================================== */
 
 void on_startup(ping_state_t *context) {
-  persist_t* persist = (persist_t*)context->options->data;
+  PersistPingContext* persist = (PersistPingContext*)context->options->data;
+
+  Locker locker(persist->isolate);
+  HandleScope scope(persist->isolate);
 
   if (persist->on_startup.IsEmpty()) {
     return;
   }
-
-  Locker locker(persist->isolate);
-  HandleScope scope(persist->isolate);
 
   Local<Object> obj = Object::New(persist->isolate);
   obj->Set(String::NewFromUtf8(persist->isolate, "target"), String::NewFromUtf8(persist->isolate, context->target));
@@ -45,20 +54,20 @@ void on_startup(ping_state_t *context) {
 
   Local<Value> argv[1] = { obj };
   Local<Function> cb = Local<Function>::New(persist->isolate, persist->on_startup);
-  cb->Call(Null(persist->isolate), 1, argv);
+  cb->Call(persist->isolate->GetCurrentContext()->Global(), 1, argv);
 }
 
 /* ========================================================================== */
 
 void on_receipt(ping_state_t *context, float triptime, struct timeval sent, struct timeval received, u_short seq) {
-  persist_t* persist = (persist_t*)context->options->data;
+  PersistPingContext* persist = (PersistPingContext*)context->options->data;
+
+  Locker locker(persist->isolate);
+  HandleScope scope(persist->isolate);
 
   if (persist->on_receipt.IsEmpty()) {
     return;
   }
-
-  Locker locker(persist->isolate);
-  HandleScope scope(persist->isolate);
 
   Local<Object> obj = Object::New(persist->isolate);
   obj->Set(String::NewFromUtf8(persist->isolate, "target"), String::NewFromUtf8(persist->isolate, context->target));
@@ -73,24 +82,25 @@ void on_receipt(ping_state_t *context, float triptime, struct timeval sent, stru
 
   Local<Value> argv[1] = { obj };
   Local<Function> cb = Local<Function>::New(persist->isolate, persist->on_receipt);
-  cb->Call(Null(persist->isolate), 1, argv);
+  cb->Call(persist->isolate->GetCurrentContext()->Global(), 1, argv);
 }
 
 /* ========================================================================== */
 
 void on_complete(ping_state_t *context, int runtime) {
-  persist_t* persist;
+  PersistPingContext* persist;
 
   if (!context) {
     return;
   }
 
-  persist = (persist_t*)context->options->data;
+  persist = (PersistPingContext*)context->options->data;
 
   Locker locker(persist->isolate);
   HandleScope scope(persist->isolate);
 
   if (persist->on_complete.IsEmpty()) {
+    cleanup(persist);
     return;
   }
 
@@ -101,7 +111,9 @@ void on_complete(ping_state_t *context, int runtime) {
       Exception::Error(String::NewFromUtf8(persist->isolate, context->errmsg)),
       Undefined(persist->isolate)
     };
-    cb->Call(Null(persist->isolate), 2, argv);
+    cb->Call(persist->isolate->GetCurrentContext()->Global(), 2, argv);
+
+    cleanup(persist);
     return;
   }
 
@@ -119,14 +131,16 @@ void on_complete(ping_state_t *context, int runtime) {
   obj->Set(String::NewFromUtf8(persist->isolate, "runtime"), Number::New(persist->isolate, runtime));
 
   Local<Value> argv[2] = { Null(persist->isolate), obj };
-  cb->Call(Null(persist->isolate), 2, argv);
+  cb->Call(persist->isolate->GetCurrentContext()->Global(), 2, argv);
+
+  cleanup(persist);
 }
 
 /* ========================================================================== */
 
 void RunProbe(const FunctionCallbackInfo<Value>& args) {
   Isolate* isolate = args.GetIsolate();
-  persist_t* persist = (persist_t*)calloc(1, sizeof(persist_t));
+  PersistPingContext* persist = new PersistPingContext();
   Local<Function> cb;
 
   persist->isolate = isolate;
@@ -144,14 +158,15 @@ void RunProbe(const FunctionCallbackInfo<Value>& args) {
   }
 
   if (args.Length() >= 6 && args[6]->IsFunction()) {
-    persist->on_complete.Reset(isolate, Local<Function>::Cast(args[6]));
-    cb = Local<Function>::New(persist->isolate, persist->on_complete);
+    cb = Local<Function>::Cast(args[6]);
+    persist->on_complete.Reset(isolate, cb);
   } else {
     persist->on_complete.Reset();
   }
 
   if (args.Length() < 1 || !args[0]->IsString()) {
     if (persist->on_complete.IsEmpty()) {
+      cleanup(persist);
       return;
     }
 
@@ -160,12 +175,13 @@ void RunProbe(const FunctionCallbackInfo<Value>& args) {
       Undefined(isolate)
     };
     cb->Call(Null(isolate), 2, argv);
+
+    cleanup(persist);
     return;
   }
 
   v8::String::Utf8Value target(args[0]->ToString());
   ping_options_t options = {
-    .target = *target,
     .probes = args[1]->Int32Value(),
     .timeout = args[2]->Int32Value(),
     .interval = args[3]->Int32Value(),
@@ -179,14 +195,17 @@ void RunProbe(const FunctionCallbackInfo<Value>& args) {
 
   if (!context) {
     if (persist->on_complete.IsEmpty()) {
+      cleanup(persist);
       return;
     }
 
     Local<Value> argv[2] = {
-      Exception::Error(String::NewFromUtf8(persist->isolate, "Ping failed to allocate memory")),
-      Undefined(persist->isolate)
+      Exception::Error(String::NewFromUtf8(isolate, "Ping failed to allocate memory")),
+      Undefined(isolate)
     };
     cb->Call(Null(isolate), 2, argv);
+
+    cleanup(persist);
     return;
   }
 }

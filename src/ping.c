@@ -24,7 +24,7 @@ extern int errno;
 static int instances = 0;
 static int queued = 0;
 
-ping_options_t ping_default_options = {NULL, 1, 1000, 1000, NULL, NULL, NULL, NULL};
+ping_options_t ping_default_options = {1, 1000, 1000, NULL, NULL, NULL, NULL};
 
 /* ========================================================================== */
 

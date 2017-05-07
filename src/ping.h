@@ -30,9 +30,6 @@ typedef void (*cb_receipt_t)(ping_state_t *, float, struct timeval, struct timev
 typedef void (*cb_complete_t)(ping_state_t *, int);
 
 struct ping_options_s {
-  /* who to ping */
-  char* target;
-
   /* how many packets to send; default 5 */
   int probes;
 
